@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+    <arg name="model_state_topic"                         default="/gazebo/model_states"/>
+    <arg name="map_size"                                  default="100"/>
+    <arg name="resolution"                                default="1.0"/>
+
+    <node name="generator" pkg="gazebo_occupancy" type="og_gt_gen.py" output="screen" respawn="true">
+        <param name="model_state_topic"                   value="$(arg model_state_topic)"/>
+        <param name="map_size"                            value="$(arg map_size)"/>
+        <param name="resolution"                          value="$(arg resolution)"/>
+    </node>
+</launch>
