@@ -8,14 +8,14 @@ from std_msgs.msg import Header
 from geometry_msgs.msg import Pose
 
 class populate_occupancy:
-    def __init__(self, array, res, stamp, origin = [0,0,0]):
-        self.array = np.asarray(array, dtype=int)
+    def __init__(self, array, res, origin, stamp):
+        self.array = np.asarray(array)
         self.res = res
         self.stamp = stamp
 
         self.origin = Pose()
-        self.origin.position.x = origin[0]
-        self.origin.position.y = origin[1]
+        self.origin.position.x = origin[1]
+        self.origin.position.y = origin[0]
         self.origin.position.z = origin[2]
 
         self.OccupancyGrid_topic = rospy.get_param('~OccupancyGrid_topic', 'Ground_Truth_Occupancy_Grid')
@@ -29,8 +29,8 @@ class populate_occupancy:
 
         mapMetaData = MapMetaData()
         mapMetaData.resolution = self.res
-        mapMetaData.width = self.array.shape[1]
-        mapMetaData.height = self.array.shape[0]
+        mapMetaData.width = self.array.shape[0]
+        mapMetaData.height = self.array.shape[1]
         mapMetaData.origin = self.origin
         
         occupancyGrid = OccupancyGrid()

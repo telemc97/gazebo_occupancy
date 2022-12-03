@@ -1,12 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
     <arg name="model_state_topic"                         default="/gazebo/model_states"/>
-    <arg name="map_size"                                  default="100"/>
+    <arg name="map_size"                                  default="120"/>
     <arg name="resolution"                                default="1.0"/>
+    <arg name="OccupancyGrid_topic"                       default="Ground_Truth_Occupancy_Grid"/>
+    <arg name="OccupancyGrid_frame"                       default="map"/>
+
+    
+
+    <node name="rviz_ground_truth_occupancy" pkg="rviz" type="rviz" output="screen" args="-d $(find gazebo_occupancy)/rviz/gazebo_occupancy.rviz" />
 
     <node name="generator" pkg="gazebo_occupancy" type="og_gt_gen.py" output="screen" respawn="true">
         <param name="model_state_topic"                   value="$(arg model_state_topic)"/>
         <param name="map_size"                            value="$(arg map_size)"/>
         <param name="resolution"                          value="$(arg resolution)"/>
+        <param name="OccupancyGrid_topic"                 value="$(arg OccupancyGrid_topic)"/>
+        <param name="OccupancyGrid_frame"                 value="$(arg OccupancyGrid_frame)"/>
     </node>
 </launch>
