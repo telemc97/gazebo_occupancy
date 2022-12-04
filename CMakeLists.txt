@@ -9,6 +9,7 @@ project(gazebo_occupancy)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   message_generation
+  message_filters
   gazebo_msgs
   std_msgs
   nav_msgs
@@ -165,6 +166,7 @@ include_directories(
 ## in contrast to setup.py, you can choose the destination
 catkin_install_python(PROGRAMS
   src/og_gt_gen.py
+  src/iou_calculator.py
   src/tools/occupancy.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
