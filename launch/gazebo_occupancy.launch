@@ -1,26 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
     <arg name="model_state_topic"                           default="/gazebo/model_states"/>
-    <arg name="map_size"                                    default="120"/>
     <arg name="exec_rate"                                   default="1.0"/>
     <arg name="resolution"                                  default="1.0"/>
     <arg name="Ground_Truth_Occupancy_Grid"                 default="Ground_Truth_Occupancy_Grid"/>
     <arg name="Ground_Truth_Occupancy_Grid_frame"           default="map"/>
-    <arg name="Occupancy_Grid"                              default="occupancy_output"/>
+    <arg name="debug"                                       default="True"/>
 
-    <node name="rviz_ground_truth_occupancy" pkg="rviz" type="rviz" output="screen" args="-d $(find gazebo_occupancy)/rviz/gazebo_occupancy.rviz" />
+    <!-- <node name="rviz_ground_truth_occupancy" pkg="rviz" type="rviz" output="screen" args="-d $(find gazebo_occupancy)/rviz/gazebo_occupancy_groundTruth.rviz" />
+    <node name="rviz_ground_truth_occupancy" pkg="rviz" type="rviz" output="screen" args="-d $(find gazebo_occupancy)/rviz/gazebo_occupancy_cropped_debug.rviz" /> -->
 
-    <node name="iou_calculator" pkg="gazebo_occupancy" type="iou_calculator.py" output="screen" respawn="true">
-        <param name="Occupancy_Grid"                        value="$(arg Occupancy_Grid)"/>
-    </node>
-
-    <node name="ground_truth_occupancy_grid" pkg="gazebo_occupancy" type="og_gt_gen.py" output="screen" respawn="true">
+    <node name="main_node" pkg="gazebo_occupancy" type="main_node.py" output="screen" respawn="true">
         <param name="model_state_topic"                     value="$(arg model_state_topic)"/>
-        <param name="map_size"                              value="$(arg map_size)"/>
         <param name="exec_rate"                             value="$(arg exec_rate)"/>
         <param name="resolution"                            value="$(arg resolution)"/>
         <param name="Ground_Truth_Occupancy_Grid"           value="$(arg Ground_Truth_Occupancy_Grid)"/>
         <param name="Ground_Truth_Occupancy_Grid_frame"     value="$(arg Ground_Truth_Occupancy_Grid_frame)"/>
+        <param name="debug"                                 value="$(arg debug)"/>
     </node>
 
 </launch>

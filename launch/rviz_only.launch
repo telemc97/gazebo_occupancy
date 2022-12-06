@@ -1,0 +1,4 @@
+<launch>
+    <node name="rviz_ground_truth_occupancy" pkg="rviz" type="rviz" output="screen" args="-d $(find gazebo_occupancy)/rviz/gazebo_occupancy_groundTruth.rviz" />
+    <node name="rviz_cropped_occupancy" pkg="rviz" type="rviz" output="screen" args="-d $(find gazebo_occupancy)/rviz/gazebo_occupancy_cropped_debug.rviz" />
+</launch>
