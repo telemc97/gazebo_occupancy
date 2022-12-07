@@ -13,6 +13,7 @@ class groundTruthOccupancy:
         self.map_size = rospy.get_param('~map_size', 300)
         self.resolution = rospy.get_param('~resolution', 1.0)
         self.rate = rospy.get_param('~exec_rate', 0.5)
+        self.safety_radius = rospy.get_param('~safety_radius', 2.0)
         self.r = rospy.Rate(self.rate)
 
         self.OccupancyGrid_topic = rospy.get_param('~Ground_Truth_Occupancy_Grid', 'Ground_Truth_Occupancy_Grid')
@@ -73,6 +74,13 @@ class groundTruthOccupancy:
             grid_y = int((array[1].position.x+abs(self.mapOriginOffset[1]) / self.resolution))
             if ( (grid_x>=0 and grid_x<=self.map.shape[0]) and (grid_y>=0 and grid_y<=self.map.shape[1]) ):
                 self.map[grid_x, grid_y] = 100
-                self.map[0,0] = 100
-                self.map[150, 150] = 100
-                self.map[299,299] = 100
+            idx = (grid_x, grid_y)
+            self.applySafetyArea(idx)
+
+
+    def applySafetyArea(self, idx_):
+        i = int(idx_[0] - self.safety_radius)
+        j = int(idx_[1] - self.safety_radius)
+        i_max = int(idx_[0] + self.safety_radius)+2
+        j_max = int(idx_[1] + self.safety_radius)+2
+        self.map[i:i_max, j:j_max] = 100
