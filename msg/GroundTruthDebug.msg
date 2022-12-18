@@ -1,0 +1,4 @@
+Header header
+float64 valid_percantage
+int64 land_points_sum
+float64 iou

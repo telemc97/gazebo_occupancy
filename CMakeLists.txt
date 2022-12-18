@@ -51,7 +51,9 @@ catkin_python_setup()
 ## Generate messages in the 'msg' folder
 add_message_files(
   FILES
-  IoU.msg
+  GroundTruthDebug.msg
+  LandingTarget.msg
+  LandingTargets.msg
 )
 
 ## Generate services in the 'srv' folder

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import os
 import sys
 import numpy as np
@@ -33,7 +34,7 @@ class populate_occupancy:
         it = np.nditer(self.array, order='F')
         for x in it:
             occupancyGrid.data.append(x)
-        
+
         occupancyGrid.header = header
         occupancyGrid.info = mapMetaData
 

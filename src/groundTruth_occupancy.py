@@ -1,43 +1,79 @@
+#!/usr/bin/env python3
 import rospy
 import numpy as np
+import rospkg
 from gazebo_msgs.msg import ModelStates
 from geometry_msgs.msg import Pose
-
+import message_filters
+from gazebo_occupancy.msg import LandingTarget
+from gazebo_occupancy.msg import LandingTargets
 from tools.occupancy import populate_occupancy
+from iou_calculator import iouCalculator
+from nav_msgs.msg import OccupancyGrid
+
+
+pkg = rospkg.RosPack()
+package_path = pkg.get_path('gazebo_occupancy')
 
 class groundTruthOccupancy:
     def __init__(self):
-
-        self.model_state_topic = rospy.get_param('~model_state_topic', '/gazebo/model_states')
-
         self.map_size = rospy.get_param('~map_size', 300)
         self.resolution = rospy.get_param('~resolution', 1.0)
         self.rate = rospy.get_param('~exec_rate', 0.5)
         self.safety_radius = rospy.get_param('~safety_radius', 2.0)
         self.r = rospy.Rate(self.rate)
 
-        self.OccupancyGrid_topic = rospy.get_param('~Ground_Truth_Occupancy_Grid', 'Ground_Truth_Occupancy_Grid')
+        #Subscriber Topic Names
+        self.model_state_topic = rospy.get_param('~model_state_topic', '/gazebo/model_states')
+        self.OccupancyGrid_topic = rospy.get_param('~Occupancy_Grid', 'occupancy_output')
+        self.land_points_topic = rospy.get_param('~land_points_topic', '/Debug_Landing_Targets')
+
+        #Frame Names
+        self.Ground_Truth_OccupancyGrid_frame = rospy.get_param('~Ground_Truth_Occupancy_Grid_frame', 'map')
         self.OccupancyGrid_frame = rospy.get_param('~Ground_Truth_Occupancy_Grid_frame', 'map')
 
-        self.offset_x = rospy.get_param('~offset_x', -(self.map_size/2))
-        self.offset_y = rospy.get_param('~offset_y', -(self.map_size/2))
-        self.offset_z = rospy.get_param('~offset_z', 0)
+        #Publisher Names
+        self.Ground_Truth_OccupancyGrid_topic = rospy.get_param('~Ground_Truth_Occupancy_Grid', 'Ground_Truth_Occupancy_Grid')
+
+        # self.offset_x = rospy.get_param('~offset_x', -(self.map_size/2))
+        # self.offset_y = rospy.get_param('~offset_y', -(self.map_size/2))
+        # self.offset_z = rospy.get_param('~offset_z', 0)
+
+        self.offset_x = -(self.map_size/2)
+        self.offset_y = -(self.map_size/2)
+        self.offset_z = 0
 
         self.map = np.zeros(shape=(self.map_size,self.map_size), dtype=int)
-
         self.mapOriginOffset = np.array([self.offset_x, self.offset_y, self.offset_z], dtype=int)
 
-        rospy.Subscriber(self.model_state_topic, ModelStates, self.mainCallback, queue_size=2)
-    
+        self.models_state = message_filters.Subscriber(self.model_state_topic, ModelStates)
+        self.land_points = message_filters.Subscriber(self.land_points_topic, LandingTargets)  
+        self.occupancyGrid = message_filters.Subscriber(self.OccupancyGrid_topic, OccupancyGrid)
+
+        self.synch = message_filters.ApproximateTimeSynchronizer([self.models_state, self.land_points, self.occupancyGrid], queue_size=10, slop=1, allow_headerless=True)
+        self.synch.registerCallback(self.mainCallback)
+
 
     def getMap(self):
         mapArray_ = self.map.T
         return mapArray_
 
+    def getLandPoints(self):
+        landPoints_ = self.land_points
+        return landPoints_
 
-    def mainCallback(self, models):
-        names = np.asarray(models.name, dtype=object)
-        pos = np.asarray(models.pose, dtype=object)
+    def getDebugData(self):
+        land_points_sum_, percentage_ = self.land_poinst_sum, self.percentage
+        return percentage_, land_points_sum_
+
+
+    def mainCallback(self, models_msg, land_points_msg, occupancy_grid_msg):
+
+        self.land_points = np.zeros(shape=(0,0), dtype=object)
+        self.land_points = np.asarray(land_points_msg.landing_targets, dtype=object)
+
+        names = np.asarray(models_msg.name, dtype=object)
+        pos = np.asarray(models_msg.pose, dtype=object)
         entries = np.stack((names,pos), 1)
 
         np.apply_along_axis(self.originOffsetCalc, 1, entries)
@@ -49,10 +85,18 @@ class groundTruthOccupancy:
         mapOriginOffsetPose.position.z = self.mapOriginOffset[2]
 
         mapArray = self.getMap()
+        land_points = self.getLandPoints()
+        self.land_poinst_sum, self.percentage = self.checkOccupiedPercentage(land_points, mapArray)
+
+        debugData = self.getDebugData()
 
         if not rospy.is_shutdown():
-            occupancyGrid = populate_occupancy(mapArray, self.resolution, mapOriginOffsetPose, rospy.Time.now(), self.OccupancyGrid_topic, self.OccupancyGrid_frame)
-            occupancyGrid.populate()
+            occupancyGridCreator = populate_occupancy(mapArray, self.resolution, mapOriginOffsetPose, rospy.Time.now(), self.Ground_Truth_OccupancyGrid_topic, self.Ground_Truth_OccupancyGrid_frame)
+            occupancyGridCreator.populate()
+
+            iou_calculator = iouCalculator(mapArray, occupancy_grid_msg, mapOriginOffsetPose, self.resolution, debugData)
+            iou_calculator.calculateIoU()
+
             self.r.sleep()
 
 
@@ -84,3 +128,17 @@ class groundTruthOccupancy:
         i_max = int(idx_[0] + self.safety_radius)+2
         j_max = int(idx_[1] + self.safety_radius)+2
         self.map[i:i_max, j:j_max] = 100
+
+
+    def checkOccupiedPercentage(self, land_points, mapArray_):
+        valid_land_points = 0
+        for i in range(len(land_points)):
+            x = land_points[i].x - self.mapOriginOffset[0]
+            y = land_points[i].y - self.mapOriginOffset[1]
+            if (mapArray_[x,y]==100):
+                mapArray_[x,y]=-128
+            elif (mapArray_[x,y]==0):
+                mapArray_[x,y]=-7
+                valid_land_points+=1
+        valid_percentage = (100*valid_land_points)/len(land_points)
+        return len(land_points), valid_percentage
