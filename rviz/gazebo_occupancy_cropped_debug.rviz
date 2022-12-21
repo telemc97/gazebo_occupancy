@@ -53,6 +53,15 @@ Visualization Manager:
       Reference Frame: <Fixed Frame>
       Show Trail: false
       Value: true
+    - Alpha: 1
+      Class: rviz/Axes
+      Enabled: true
+      Length: 1
+      Name: Axes
+      Radius: 0.10000000149011612
+      Reference Frame: base_link
+      Show Trail: false
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -89,9 +98,9 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 53.14859390258789
-        Y: 23.901681900024414
-        Z: 0.5151273012161255
+        X: 50.642086029052734
+        Y: 40.3017578125
+        Z: 0.6961957812309265
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
@@ -117,5 +126,5 @@ Window Geometry:
   Views:
     collapsed: true
   Width: 1048
-  X: 992
-  Y: 74
+  X: 872
+  Y: 37

@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 import rospy
 import numpy as np
+import math
 import rospkg
 from gazebo_msgs.msg import ModelStates
-from geometry_msgs.msg import Pose
+from geometry_msgs.msg import Pose, PoseStamped
 import message_filters
 from gazebo_occupancy.msg import LandingTarget
 from gazebo_occupancy.msg import LandingTargets
 from tools.occupancy import populate_occupancy
 from iou_calculator import iouCalculator
 from nav_msgs.msg import OccupancyGrid
+from mavros_msgs.msg import ExtendedState
 
 
 pkg = rospkg.RosPack()
@@ -25,8 +27,11 @@ class groundTruthOccupancy:
 
         #Subscriber Topic Names
         self.model_state_topic = rospy.get_param('~model_state_topic', '/gazebo/model_states')
-        self.OccupancyGrid_topic = rospy.get_param('~Occupancy_Grid', 'occupancy_output')
+        self.OccupancyGrid_topic = rospy.get_param('~Occupancy_Grid', '/occupancy_output')
         self.land_points_topic = rospy.get_param('~land_points_topic', '/Debug_Landing_Targets')
+        #Mavros Subscriber Names
+        self.extended_state_topic =  '/mavros/extended_state'
+        self.local_position_pose_topic = '/mavros/local_position/pose'
 
         #Frame Names
         self.Ground_Truth_OccupancyGrid_frame = rospy.get_param('~Ground_Truth_Occupancy_Grid_frame', 'map')
@@ -35,22 +40,23 @@ class groundTruthOccupancy:
         #Publisher Names
         self.Ground_Truth_OccupancyGrid_topic = rospy.get_param('~Ground_Truth_Occupancy_Grid', 'Ground_Truth_Occupancy_Grid')
 
-        # self.offset_x = rospy.get_param('~offset_x', -(self.map_size/2))
-        # self.offset_y = rospy.get_param('~offset_y', -(self.map_size/2))
-        # self.offset_z = rospy.get_param('~offset_z', 0)
-
         self.offset_x = -(self.map_size/2)
         self.offset_y = -(self.map_size/2)
         self.offset_z = 0
 
         self.map = np.zeros(shape=(self.map_size,self.map_size), dtype=int)
+        self.map1 = np.zeros(shape=(self.map_size,self.map_size), dtype=int)
+
         self.mapOriginOffset = np.array([self.offset_x, self.offset_y, self.offset_z], dtype=int)
 
         self.models_state = message_filters.Subscriber(self.model_state_topic, ModelStates)
         self.land_points = message_filters.Subscriber(self.land_points_topic, LandingTargets)  
         self.occupancyGrid = message_filters.Subscriber(self.OccupancyGrid_topic, OccupancyGrid)
 
-        self.synch = message_filters.ApproximateTimeSynchronizer([self.models_state, self.land_points, self.occupancyGrid], queue_size=10, slop=1, allow_headerless=True)
+        self.extended_state = message_filters.Subscriber(self.extended_state_topic, ExtendedState)
+        self.local_position_pose = message_filters.Subscriber(self.local_position_pose_topic, PoseStamped)
+
+        self.synch = message_filters.ApproximateTimeSynchronizer([self.models_state, self.land_points, self.occupancyGrid, self.extended_state, self.local_position_pose], queue_size=10, slop=1, allow_headerless=True)
         self.synch.registerCallback(self.mainCallback)
 
 
@@ -67,7 +73,7 @@ class groundTruthOccupancy:
         return percentage_, land_points_sum_
 
 
-    def mainCallback(self, models_msg, land_points_msg, occupancy_grid_msg):
+    def mainCallback(self, models_msg, land_points_msg, occupancy_grid_msg, extended_state_msg, local_position_msg):
 
         self.land_points = np.zeros(shape=(0,0), dtype=object)
         self.land_points = np.asarray(land_points_msg.landing_targets, dtype=object)
@@ -84,17 +90,23 @@ class groundTruthOccupancy:
         mapOriginOffsetPose.position.y = self.mapOriginOffset[1]
         mapOriginOffsetPose.position.z = self.mapOriginOffset[2]
 
+        if (extended_state_msg.landed_state == 1):
+            robot_position = local_position_msg.pose.position.x, local_position_msg.pose.position.y
+            min_dist = self.getMinDistance(robot_position)
+        else:
+            min_dist = 2310
+        
+
         mapArray = self.getMap()
         land_points = self.getLandPoints()
-        self.land_poinst_sum, self.percentage = self.checkOccupiedPercentage(land_points, mapArray)
-
+        self.land_poinst_sum, self.percentage = self.checkOccupiedPercentage(land_points, mapArray, occupancy_grid_msg.info.origin)
         debugData = self.getDebugData()
 
         if not rospy.is_shutdown():
             occupancyGridCreator = populate_occupancy(mapArray, self.resolution, mapOriginOffsetPose, rospy.Time.now(), self.Ground_Truth_OccupancyGrid_topic, self.Ground_Truth_OccupancyGrid_frame)
             occupancyGridCreator.populate()
 
-            iou_calculator = iouCalculator(mapArray, occupancy_grid_msg, mapOriginOffsetPose, self.resolution, debugData)
+            iou_calculator = iouCalculator(mapArray, occupancy_grid_msg, mapOriginOffsetPose, self.resolution, debugData, min_dist)
             iou_calculator.calculateIoU()
 
             self.r.sleep()
@@ -118,6 +130,7 @@ class groundTruthOccupancy:
             grid_y = int((array[1].position.x+abs(self.mapOriginOffset[1]) / self.resolution))
             if ( (grid_x>=0 and grid_x<=self.map.shape[0]) and (grid_y>=0 and grid_y<=self.map.shape[1]) ):
                 self.map[grid_x, grid_y] = 100
+                self.map1[grid_x, grid_y] = 100
             idx = (grid_x, grid_y)
             self.applySafetyArea(idx)
 
@@ -130,11 +143,11 @@ class groundTruthOccupancy:
         self.map[i:i_max, j:j_max] = 100
 
 
-    def checkOccupiedPercentage(self, land_points, mapArray_):
+    def checkOccupiedPercentage(self, land_points, mapArray_, origin_):
         valid_land_points = 0
         for i in range(len(land_points)):
-            x = land_points[i].x - self.mapOriginOffset[0]
-            y = land_points[i].y - self.mapOriginOffset[1]
+            x = land_points[i].x - int((self.offset_x) - origin_.position.x) #ToDo: make them depended on the resolution
+            y = land_points[i].y - int((self.offset_y) - origin_.position.y)
             if (mapArray_[x,y]==100):
                 mapArray_[x,y]=-128
             elif (mapArray_[x,y]==0):
@@ -142,3 +155,21 @@ class groundTruthOccupancy:
                 valid_land_points+=1
         valid_percentage = (100*valid_land_points)/len(land_points)
         return len(land_points), valid_percentage
+
+
+    def getMinDistance(self, robot_position_):
+        it = np.nditer(self.map1, flags=['multi_index'], order='F')
+        min_dist_ = 123456789
+        for x in it:
+            if (x==100):
+                dist = self.euclidianDistance(robot_position_, it.multi_index)
+                if (dist<min_dist_):
+                    min_dist_ = dist
+        return min_dist_
+
+    
+    def euclidianDistance(self, pt0, pt1):
+        dist_ = math.sqrt(pow((pt1[0]-pt0[0]), 2)+pow((pt1[1]-pt0[1]),2))
+        dist_ = round(dist_)
+        return dist_
+        

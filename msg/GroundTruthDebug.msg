@@ -2,3 +2,4 @@ Header header
 float64 valid_percantage
 int64 land_points_sum
 float64 iou
+int64 min_dist_from_obj

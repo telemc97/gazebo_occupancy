@@ -32,6 +32,7 @@ class populate_occupancy:
         occupancyGrid = OccupancyGrid()
         
         it = np.nditer(self.array, order='F')
+        occupancyGrid.data.clear()
         for x in it:
             occupancyGrid.data.append(x)
 

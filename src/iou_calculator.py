@@ -11,13 +11,14 @@ pkg = rospkg.RosPack()
 package_path = pkg.get_path('gazebo_occupancy')
 
 class iouCalculator:
-    def __init__ (self, gt_mapArray, occupancy_grid_msg_, map_origin_offset_, map_resolution_, debugData_):
+    def __init__ (self, gt_mapArray, occupancy_grid_msg_, map_origin_offset_, map_resolution_, debugData_, min_dist_):
         
         self.gt_mapArray = gt_mapArray
         self.occupancyGrid = occupancy_grid_msg_
         self.gt_mapArray_origin_offset = map_origin_offset_
         self.gt_mapArray_res = map_resolution_
         self.debugData = debugData_
+        self.min_dist = min_dist_
 
         self.OccupancyGrid_cropped_topic = '~Ground_Truth_Occupancy_Grid_Cropped'
         self.OccupancyGrid_cropped_frame = rospy.get_param('~Ground_Truth_Occupancy_Grid_Cropped_frame', 'map')
@@ -57,7 +58,7 @@ class iouCalculator:
         groundTruthDebug.valid_percantage = self.debugData[0]
         groundTruthDebug.land_points_sum = self.debugData[1]
         groundTruthDebug.iou = iou_
-        groundTruthDebug
+        groundTruthDebug.min_dist_from_obj = self.min_dist
         self.publisher_iou.publish(groundTruthDebug)
 
 
@@ -96,7 +97,9 @@ class iouCalculator:
 
 
     def getArrayStartIndex(self, gt_mapArray_origin_offset_, occupancyGridInfo):
-        start_idx_x = int(abs(gt_mapArray_origin_offset_.position.x-occupancyGridInfo.origin.position.x))
-        start_idx_y = int(abs(gt_mapArray_origin_offset_.position.y-occupancyGridInfo.origin.position.y))
+        # start_idx_x = int(abs(gt_mapArray_origin_offset_.position.x-occupancyGridInfo.origin.position.x))
+        # start_idx_y = int(abs(gt_mapArray_origin_offset_.position.y-occupancyGridInfo.origin.position.y))
+        start_idx_x = int(gt_mapArray_origin_offset_.position.x + occupancyGridInfo.origin.position.x)
+        start_idx_y = int(gt_mapArray_origin_offset_.position.y + occupancyGridInfo.origin.position.y)
         starting_idx_ = start_idx_x, start_idx_y
         return starting_idx_
