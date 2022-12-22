@@ -2,6 +2,7 @@
 import rospy
 import rospkg
 import numpy as np
+import math
 from gazebo_occupancy.msg import GroundTruthDebug
 from nav_msgs.msg import OccupancyGrid
 from std_msgs.msg import Header
@@ -36,6 +37,7 @@ class iouCalculator:
         ending_idx = (starting_idx[0]+self.occupancyGrid.info.width), (starting_idx[1]+self.occupancyGrid.info.height)
 
         gt_array = self.gt_mapArray[starting_idx[0]:ending_idx[0], starting_idx[1]:ending_idx[1]]
+
         grid_array = self.toMatrix(self.occupancyGrid)
 
         gt_array_bool = self.boolConverter(gt_array)
@@ -63,9 +65,11 @@ class iouCalculator:
 
 
     def iouCalc(self, array0, array1):
+        iou_= 0
         overlap = array0*array1
         union = array0+array1
-        iou_ = overlap.sum()/float(union.sum())
+        if (math.isnan(union.sum())==False):
+            iou_ = overlap.sum()/float(union.sum())
         return iou_
 
 
@@ -73,7 +77,7 @@ class iouCalculator:
         bool_array = np.zeros(shape=(array.shape), dtype=bool)
         it = np.nditer(array, flags=['multi_index'])
         for x in it:
-            if (x==100):
+            if (x==100 or x==-128):
                 bool_array[it.multi_index]=1
         return bool_array
 

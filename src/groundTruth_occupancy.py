@@ -40,14 +40,11 @@ class groundTruthOccupancy:
         #Publisher Names
         self.Ground_Truth_OccupancyGrid_topic = rospy.get_param('~Ground_Truth_Occupancy_Grid', 'Ground_Truth_Occupancy_Grid')
 
-        self.offset_x = -(self.map_size/2)
-        self.offset_y = -(self.map_size/2)
-        self.offset_z = 0
+        self.mapOriginOffset = np.zeros(shape=(3), dtype=int)
 
-        self.map = np.zeros(shape=(self.map_size,self.map_size), dtype=int)
-        self.map1 = np.zeros(shape=(self.map_size,self.map_size), dtype=int)
-
-        self.mapOriginOffset = np.array([self.offset_x, self.offset_y, self.offset_z], dtype=int)
+        self.mapOriginOffset[0] = -(self.map_size/2)
+        self.mapOriginOffset[1] = -(self.map_size/2)
+        self.mapOriginOffset[2] = 0
 
         self.models_state = message_filters.Subscriber(self.model_state_topic, ModelStates)
         self.land_points = message_filters.Subscriber(self.land_points_topic, LandingTargets)  
@@ -75,6 +72,9 @@ class groundTruthOccupancy:
 
     def mainCallback(self, models_msg, land_points_msg, occupancy_grid_msg, extended_state_msg, local_position_msg):
 
+        self.map = np.zeros(shape=(self.map_size,self.map_size), dtype=int)
+        self.map1 = np.zeros(shape=(self.map_size,self.map_size), dtype=int)
+
         self.land_points = np.zeros(shape=(0,0), dtype=object)
         self.land_points = np.asarray(land_points_msg.landing_targets, dtype=object)
 
@@ -92,10 +92,10 @@ class groundTruthOccupancy:
 
         if (extended_state_msg.landed_state == 1):
             robot_position = local_position_msg.pose.position.x, local_position_msg.pose.position.y
+            robot_position = self.fromMatrixToRealWorld(list(robot_position), occupancy_grid_msg.info.origin)
             min_dist = self.getMinDistance(robot_position)
         else:
             min_dist = 2310
-        
 
         mapArray = self.getMap()
         land_points = self.getLandPoints()
@@ -145,9 +145,10 @@ class groundTruthOccupancy:
 
     def checkOccupiedPercentage(self, land_points, mapArray_, origin_):
         valid_land_points = 0
+        #ToDo: make them depended on the resolution
         for i in range(len(land_points)):
-            x = land_points[i].x - int((self.offset_x) - origin_.position.x) #ToDo: make them depended on the resolution
-            y = land_points[i].y - int((self.offset_y) - origin_.position.y)
+            x = land_points[i].x - int((self.mapOriginOffset[0]) - origin_.position.x)
+            y = land_points[i].y - int((self.mapOriginOffset[1]) - origin_.position.y)
             if (mapArray_[x,y]==100):
                 mapArray_[x,y]=-128
             elif (mapArray_[x,y]==0):
@@ -162,8 +163,8 @@ class groundTruthOccupancy:
         min_dist_ = 123456789
         for x in it:
             if (x==100):
-                dist = self.euclidianDistance(robot_position_, it.multi_index)
-                if (dist<min_dist_):
+                dist = self.euclidianDistance(it.multi_index, robot_position_)
+                if (dist<min_dist_): 
                     min_dist_ = dist
         return min_dist_
 
@@ -172,4 +173,8 @@ class groundTruthOccupancy:
         dist_ = math.sqrt(pow((pt1[0]-pt0[0]), 2)+pow((pt1[1]-pt0[1]),2))
         dist_ = round(dist_)
         return dist_
-        
+
+    def fromMatrixToRealWorld(self, robotPosition_, origin_):
+        robotPosition_[0] = robotPosition_[0] - int((self.mapOriginOffset[0]) - origin_.position.x)
+        robotPosition_[1] = robotPosition_[1] - int((self.mapOriginOffset[1]) - origin_.position.y)
+        return robotPosition_
