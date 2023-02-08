@@ -68,7 +68,7 @@ class iouCalculator:
         iou_= 0
         overlap = array0*array1
         union = array0+array1
-        if (math.isnan(union.sum())==False):
+        if (float(union.sum())!=0):
             iou_ = overlap.sum()/float(union.sum())
         return iou_
 

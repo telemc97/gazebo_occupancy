@@ -71,49 +71,50 @@ class groundTruthOccupancy:
 
 
     def mainCallback(self, models_msg, land_points_msg, occupancy_grid_msg, extended_state_msg, local_position_msg):
-
-        self.map = np.zeros(shape=(self.map_size,self.map_size), dtype=int)
-        self.map1 = np.zeros(shape=(self.map_size,self.map_size), dtype=int)
-
-        self.land_points = np.zeros(shape=(0,0), dtype=object)
-        self.land_points = np.asarray(land_points_msg.landing_targets, dtype=object)
-
-        names = np.asarray(models_msg.name, dtype=object)
-        pos = np.asarray(models_msg.pose, dtype=object)
-        entries = np.stack((names,pos), 1)
-
-        np.apply_along_axis(self.originOffsetCalc, 1, entries)
-        np.apply_along_axis(self.coordGen, 1, entries)
-
-        mapOriginOffsetPose = Pose()
-        mapOriginOffsetPose.position.x = self.mapOriginOffset[0]
-        mapOriginOffsetPose.position.y = self.mapOriginOffset[1]
-        mapOriginOffsetPose.position.z = self.mapOriginOffset[2]
-
-        if (extended_state_msg.landed_state == 1):
-            robot_position = local_position_msg.pose.position.x, local_position_msg.pose.position.y
-            robot_position = self.fromMatrixToRealWorld(list(robot_position), occupancy_grid_msg.info.origin)
-            min_dist = self.getMinDistance(robot_position)
-        else:
-            min_dist = 2310
-
-        mapArray = self.getMap()
-        land_points = self.getLandPoints()
-        self.land_poinst_sum, self.percentage = self.checkOccupiedPercentage(land_points, mapArray, occupancy_grid_msg.info.origin)
-        debugData = self.getDebugData()
-
         if not rospy.is_shutdown():
-            occupancyGridCreator = populate_occupancy(mapArray, self.resolution, mapOriginOffsetPose, rospy.Time.now(), self.Ground_Truth_OccupancyGrid_topic, self.Ground_Truth_OccupancyGrid_frame)
-            occupancyGridCreator.populate()
 
-            iou_calculator = iouCalculator(mapArray, occupancy_grid_msg, mapOriginOffsetPose, self.resolution, debugData, min_dist)
-            iou_calculator.calculateIoU()
+            self.map = np.zeros(shape=(self.map_size,self.map_size), dtype=int)
+            self.map1 = np.zeros(shape=(self.map_size,self.map_size), dtype=int)
+
+            self.land_points = np.zeros(shape=(0,0), dtype=object)
+            self.land_points = np.asarray(land_points_msg.landing_targets, dtype=object)
+
+            names = np.asarray(models_msg.name, dtype=object)
+            pos = np.asarray(models_msg.pose, dtype=object)
+            entries = np.stack((names,pos), 1)
+
+            np.apply_along_axis(self.originOffsetCalc, 1, entries)
+            np.apply_along_axis(self.coordGen, 1, entries)
+
+            mapOriginOffsetPose = Pose()
+            mapOriginOffsetPose.position.x = self.mapOriginOffset[0]
+            mapOriginOffsetPose.position.y = self.mapOriginOffset[1]
+            mapOriginOffsetPose.position.z = self.mapOriginOffset[2]
+
+            if (extended_state_msg.landed_state == 1):
+                robot_position = local_position_msg.pose.position.x, local_position_msg.pose.position.y
+                robot_position = self.fromMatrixToRealWorld(list(robot_position), occupancy_grid_msg.info.origin)
+                min_dist = self.getMinDistance(robot_position)
+            else:
+                min_dist = 2310
+
+            mapArray = self.getMap()
+            land_points = self.getLandPoints()
+            self.land_poinst_sum, self.percentage = self.checkOccupiedPercentage(land_points, mapArray, occupancy_grid_msg.info.origin)
+            debugData = self.getDebugData()
+
+            if not rospy.is_shutdown():
+                occupancyGridCreator = populate_occupancy(mapArray, self.resolution, mapOriginOffsetPose, rospy.Time.now(), self.Ground_Truth_OccupancyGrid_topic, self.Ground_Truth_OccupancyGrid_frame)
+                occupancyGridCreator.populate()
+
+                iou_calculator = iouCalculator(mapArray, occupancy_grid_msg, mapOriginOffsetPose, self.resolution, debugData, min_dist)
+                iou_calculator.calculateIoU()
 
             self.r.sleep()
 
 
     def originOffsetCalc(self, array):
-        if ((array[0])[:5] == "Nurse"):
+        if ((array[0])[:5] == "Nurse") or ((array[0])[:5] == "actor"):
 
             grid_x = int(array[1].position.y / self.resolution)
             if (grid_x<self.mapOriginOffset[0]):
@@ -125,7 +126,7 @@ class groundTruthOccupancy:
 
 
     def coordGen(self, array):
-        if ((array[0])[:5] == "Nurse"):
+        if ((array[0])[:5] == "Nurse") or ((array[0])[:5] == "actor"):
             grid_x = int((array[1].position.y+abs(self.mapOriginOffset[0]) / self.resolution))
             grid_y = int((array[1].position.x+abs(self.mapOriginOffset[1]) / self.resolution))
             if ( (grid_x>=0 and grid_x<=self.map.shape[0]) and (grid_y>=0 and grid_y<=self.map.shape[1]) ):

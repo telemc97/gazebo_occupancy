@@ -18,5 +18,4 @@
         <param name="Ground_Truth_Occupancy_Grid_frame"     value="$(arg Ground_Truth_Occupancy_Grid_frame)"/>
         <param name="debug"                                 value="$(arg debug)"/>
     </node>
-
 </launch>
