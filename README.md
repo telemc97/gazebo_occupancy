@@ -14,10 +14,10 @@ The part of the map that the [safety_pipeline](https://github.com/telemc97/safet
   <li><code>~map_size</code></li>
   Size of Occupancy Grid
   <li><code>~resolution</code></li>
+  The resolution of the Occupancy Grid
   <li><code>~safety_radius</code></li>
   <li><code>~Occupancy_Grid</code></li>
-  <li><code>~Occupancy_Grid</code></li>
-  <li><code>~camera1_info_topic</code></li>
+  The Occupancy Grid's topic (e.g. output of the Landing_Commander module from <a href="https://github.com/telemc97/safety_pipeline.git">safety_pipeline</a>)
 </ul>
 
 ### Subscribing Topics
